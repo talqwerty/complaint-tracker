@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Complaint Tracker API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

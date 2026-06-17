@@ -1,0 +1,17 @@
+{
+  "name": "complaint-tracker",
+  "version": "1.0.0",
+  "description": "ระบบติดตาม Customer Complaint — Forth Smart Service",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --experimental-sqlite server.js",
+    "test": "node --experimental-sqlite tests/test.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

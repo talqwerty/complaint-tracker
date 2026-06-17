@@ -1,0 +1,19 @@
+meta {
+  name: Delete Case
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/cases/{{caseId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  Delete a case (its notes are removed via cascade). Uses {{caseId}} from Create Case.
+}

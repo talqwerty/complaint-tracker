@@ -1,0 +1,32 @@
+meta {
+  name: Login
+  type: http
+  seq: 0
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "admin@forth.com",
+    "password": "password123"
+  }
+}
+
+vars:post-response {
+  token: res.body.accessToken
+}
+
+assert {
+  res.status: eq 200
+  res.body.accessToken: isString
+}
+
+docs {
+  Log in and capture the JWT into {{token}}. The collection sends it as
+  "Authorization: Bearer {{token}}" on every other request. Run this first.
+}

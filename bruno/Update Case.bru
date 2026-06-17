@@ -1,0 +1,28 @@
+meta {
+  name: Update Case
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/cases/{{caseId}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "status": "In Progress",
+    "assignee": "วิชัย",
+    "priority": "Critical"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq In Progress
+}
+
+docs {
+  Patch a case. Allowed fields: status, assignee, priority, customerContact. Other fields are rejected.
+}

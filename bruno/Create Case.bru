@@ -1,0 +1,37 @@
+meta {
+  name: Create Case
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/cases
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "customerName": "บริษัท ABC จำกัด",
+    "customerContact": "02-123-4567",
+    "category": "สินค้าชำรุด",
+    "priority": "High",
+    "subject": "อุปกรณ์เปิดไม่ติด",
+    "description": "ทดสอบสร้างเคสจาก Bruno",
+    "assignee": "สมชาย"
+  }
+}
+
+vars:post-response {
+  caseId: res.body.id
+}
+
+assert {
+  res.status: eq 201
+  res.body.caseNumber: isString
+}
+
+docs {
+  Create a case. Required: customerName, category, subject. caseNumber is auto-generated (CST{YYYYMM}{NNNN}).
+  The created id is captured into the runtime variable {{caseId}} for the requests below.
+}

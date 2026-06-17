@@ -1,0 +1,26 @@
+meta {
+  name: List Cases
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/cases?status=All&priority=All&search=
+  body: none
+  auth: none
+}
+
+params:query {
+  status: All
+  priority: All
+  search:
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}
+
+docs {
+  List cases. Filters: status, priority (use "All" or omit to skip), search (matches caseNumber / customerName / subject).
+}

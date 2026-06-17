@@ -1,0 +1,20 @@
+meta {
+  name: Get Case
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/cases/{{caseId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.notes: isArray
+}
+
+docs {
+  Get a single case with its notes. Uses {{caseId}} captured from Create Case.
+}

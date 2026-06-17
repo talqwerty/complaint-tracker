@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>Security Report — Complaint Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; color: #2d3748; line-height: 1.6; }
+    header { background: #1a202c; color: white; padding: 24px 32px; }
+    header h1 { font-size: 1.4rem; }
+    header p { font-size: 0.85rem; opacity: 0.7; margin-top: 4px; }
+    .container { max-width: 900px; margin: 32px auto; padding: 0 16px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 32px; }
+    .summary-card { background: white; border-radius: 10px; padding: 16px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-top: 4px solid; }
+    .summary-card .num { font-size: 2rem; font-weight: 800; }
+    .summary-card .lbl { font-size: 0.75rem; color: #718096; margin-top: 2px; }
+    .card-total { border-color: #3182ce; }
+    .card-critical { border-color: #742a2a; }
+    .card-high { border-color: #c05621; }
+    .card-medium { border-color: #d69e2e; }
+    .card-low { border-color: #2f855a; }
+
+    h2 { font-size: 1.1rem; color: #1a202c; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; }
+    .vuln-card { background: white; border-radius: 10px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; border-left: 5px solid; }
+    .vuln-card.critical { border-color: #742a2a; }
+    .vuln-card.high { border-color: #c05621; }
+    .vuln-card.medium { border-color: #d69e2e; }
+    .vuln-card.low { border-color: #2f855a; }
+    .vuln-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+    .badge-critical { background: #fff5f5; color: #742a2a; }
+    .badge-high { background: #fffaf0; color: #c05621; }
+    .badge-medium { background: #fffff0; color: #b7791f; }
+    .badge-low { background: #f0fff4; color: #2f855a; }
+    .vuln-title { font-weight: 700; font-size: 0.95rem; }
+    .vuln-body { padding: 0 20px 16px; }
+    .vuln-body p { font-size: 0.88rem; color: #4a5568; margin-bottom: 12px; }
+    .vuln-body strong { color: #2d3748; }
+    .code { background: #2d3748; color: #e2e8f0; padding: 10px 14px; border-radius: 6px; font-family: monospace; font-size: 0.82rem; margin: 8px 0; white-space: pre-wrap; }
+    .fix { background: #f0fff4; border: 1px solid #c6f6d5; border-radius: 6px; padding: 12px 16px; margin-top: 10px; font-size: 0.85rem; }
+    .fix strong { color: #276749; }
+    .section { margin-bottom: 32px; }
+    .footer { text-align: center; font-size: 0.8rem; color: #a0aec0; margin: 40px 0 20px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🔒 Security Analysis Report</h1>
+  <p>Project: Complaint Tracker — Forth Smart Service &nbsp;|&nbsp; วันที่: 17 มิถุนายน 2569 &nbsp;|&nbsp; วิเคราะห์ด้วย Claude Code</p>
+</header>
+
+<div class="container">
+  <!-- Summary -->
+  <div class="summary-grid">
+    <div class="summary-card card-total"><div class="num">7</div><div class="lbl">รวมทั้งหมด</div></div>
+    <div class="summary-card card-critical"><div class="num">1</div><div class="lbl">Critical</div></div>
+    <div class="summary-card card-high"><div class="num">2</div><div class="lbl">High</div></div>
+    <div class="summary-card card-medium"><div class="num">3</div><div class="lbl">Medium</div></div>
+    <div class="summary-card card-low"><div class="num">1</div><div class="lbl">Low</div></div>
+  </div>
+
+  <div class="section">
+    <h2>🚨 Critical</h2>
+
+    <div class="vuln-card critical">
+      <div class="vuln-header">
+        <span class="badge badge-critical">CRITICAL</span>
+        <span class="vuln-title">ไม่มีระบบ Authentication / Authorization</span>
+      </div>
+      <div class="vuln-body">
+        <p><strong>สาเหตุ:</strong> API ทุก endpoint เปิดให้เข้าถึงได้โดยไม่ต้องล็อกอิน ใครก็ตามที่รู้ URL สามารถอ่าน สร้าง แก้ไข หรือลบ Case ได้ทั้งหมด</p>
+        <div class="code">// ปัจจุบัน — ไม่มีการตรวจสอบตัวตน
+app.delete('/api/cases/:id', (req, res) => {
+  // ทุกคนลบได้เลย!
+});</div>
+        <div class="fix">
+          <strong>✅ วิธีแก้ไข:</strong> เพิ่ม JWT Authentication middleware และจำกัดสิทธิ์ตาม role (Admin/Staff)
+          <div class="code">const jwt = require('jsonwebtoken');
+const auth = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try { req.user = jwt.verify(token, process.env.JWT_SECRET); next(); }
+  catch { res.status(403).json({ error: 'Invalid token' }); }
+};
+app.delete('/api/cases/:id', auth, (req, res) => { ... });</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>⚠️ High</h2>
+
+    <div class="vuln-card high">
+      <div class="vuln-header">
+        <span class="badge badge-high">HIGH</span>
+        <span class="vuln-title">ไม่มี Input Sanitization (XSS Risk)</span>
+      </div>
+      <div class="vuln-body">
+        <p><strong>สาเหตุ:</strong> Frontend แสดงข้อมูลจาก API โดยไม่ escape HTML ถ้าผู้ใช้บันทึกข้อมูลที่มี script tag ก็อาจถูก execute ได้</p>
+        <div class="code">// ปัจจุบัน — อันตราย
+td.innerHTML = caseData.subject; // subject อาจมี &lt;script&gt;</div>
+        <div class="fix">
+          <strong>✅ วิธีแก้ไข:</strong> ใช้ textContent แทน innerHTML หรือ escape HTML ก่อนแสดงผล
+          <div class="code">function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+td.textContent = caseData.subject; // ปลอดภัย</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vuln-card high">
+      <div class="vuln-header">
+        <span class="badge badge-high">HIGH</span>
+        <span class="vuln-title">ไม่มี Rate Limiting</span>
+      </div>
+      <div class="vuln-body">
+        <p><strong>สาเหตุ:</strong> API ไม่จำกัดจำนวน request ต่อนาที ทำให้ถูก brute force หรือ DoS attack ได้ง่าย</p>
+        <div class="fix">
+          <strong>✅ วิธีแก้ไข:</strong> ติดตั้ง express-rate-limit
+          <div class="code">const rateLimit = require('express-rate-limit');
+app.use('/api/', rateLimit({ windowMs: 15*60*1000, max: 100 }));</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🔶 Medium</h2>
+
+    <div class="vuln-card medium">
+      <div class="vuln-header">
+        <span class="badge badge-medium">MEDIUM</span>
+        <span class="vuln-title">ข้อมูล Sensitive ไม่ถูก Mask</span>
+      </div>
+      <div class="vuln-body">
+        <p><strong>สาเหตุ:</strong> เบอร์โทรและข้อมูลติดต่อลูกค้าถูกส่งกลับในทุก API response โดยไม่มีการ mask เช่น 02-111-2222 → 02-111-XXXX</p>
+        <div class="fix">
+          <strong>✅ วิธีแก้ไข:</strong> Mask ข้อมูลในฝั่ง API หรือกำหนด field access ตาม role
+        </div>
+      </div>
+    </div>
+
+    <div class="vuln-card medium">
+      <div class="vuln-header">
+        <span class="badge badge-medium">MEDIUM</span>
+        <span class="vuln-title">ไม่มี HTTPS (ใช้ HTTP)</span>
+      </div>
+      <div class="vuln-body">
+        <p><strong>สาเหตุ:</strong> Server รันบน HTTP ข้อมูลถูกส่งแบบ plaintext อาจถูก intercept ได้ถ้า deploy บน network</p>
+        <div class="fix">
+          <strong>✅ วิธีแก้ไข:</strong> ใช้ nginx reverse proxy กับ SSL certificate หรือ deploy บน platform ที่มี HTTPS เช่น Railway, Render
+        </div>
+      </div>
+    </div>
+
+    <div class="vuln-card medium">
+      <div class="vuln-header">
+        <span class="badge badge-medium">MEDIUM</span>
+        <span class="vuln-title">ไม่มี CORS Restriction</span>
+      </div>
+      <div class="vuln-body">
+        <p><strong>สาเหตุ:</strong> ใช้ cors() แบบ default อนุญาตทุก origin ทำให้ website ภายนอกสามารถเรียก API ได้</p>
+        <div class="code">app.use(cors()); // เปิดทุก origin — ไม่ปลอดภัย</div>
+        <div class="fix">
+          <strong>✅ วิธีแก้ไข:</strong> จำกัด origin ที่อนุญาต
+          <div class="code">app.use(cors({ origin: 'http://localhost:3000' }));</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🟢 Low</h2>
+
+    <div class="vuln-card low">
+      <div class="vuln-header">
+        <span class="badge badge-low">LOW</span>
+        <span class="vuln-title">ไม่มี Security Headers (Helmet)</span>
+      </div>
+      <div class="vuln-body">
+        <p><strong>สาเหตุ:</strong> Response ไม่มี HTTP security headers เช่น X-Content-Type-Options, X-Frame-Options ทำให้เสี่ยงต่อ clickjacking</p>
+        <div class="fix">
+          <strong>✅ วิธีแก้ไข:</strong>
+          <div class="code">const helmet = require('helmet');
+app.use(helmet());</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    สร้างโดย Claude Code &nbsp;|&nbsp; Complaint Tracker — Forth Smart Service &nbsp;|&nbsp; 2026
+  </div>
+</div>
+</body>
+</html>

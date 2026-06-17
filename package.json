@@ -1,0 +1,22 @@
+{
+  "name": "complaint-tracker",
+  "version": "2.0.0",
+  "private": true,
+  "description": "ระบบติดตาม Customer Complaint — Forth Smart Service (Next.js + NestJS + shadcn)",
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api start:dev",
+    "build": "pnpm --filter api build && pnpm --filter web build",
+    "test": "pnpm --filter api test",
+    "lint": "pnpm --filter web lint",
+    "typecheck": "pnpm --filter web typecheck",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "db:push": "pnpm --filter api prisma db push",
+    "db:seed": "pnpm --filter api seed",
+    "db:studio": "pnpm --filter api prisma studio"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

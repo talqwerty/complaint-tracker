@@ -1,0 +1,27 @@
+meta {
+  name: Add Note
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/cases/{{caseId}}/notes
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "author": "สมหญิง",
+    "content": "ติดต่อลูกค้าแล้ว นัดช่างเข้าตรวจสอบ"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.content: isString
+}
+
+docs {
+  Append a note to a case. Required: author, content.
+}

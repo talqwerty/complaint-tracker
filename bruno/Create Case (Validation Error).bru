@@ -1,0 +1,25 @@
+meta {
+  name: Create Case (Validation Error)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/cases
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "customerContact": "no required fields"
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+
+docs {
+  Demonstrates server-side validation: missing required fields (customerName, category, subject) returns 400.
+}

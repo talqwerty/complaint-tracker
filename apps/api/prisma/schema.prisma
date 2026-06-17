@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("staff")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Case {
+  id              Int      @id @default(autoincrement())
+  caseNumber      String   @unique @map("case_number")
+  customerName    String   @map("customer_name")
+  customerContact String?  @map("customer_contact")
+  category        String
+  priority        String   @default("Medium")
+  subject         String
+  description     String?
+  status          String   @default("Open")
+  assignee        String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  notes           Note[]
+
+  @@map("cases")
+}
+
+model Note {
+  id        Int      @id @default(autoincrement())
+  caseId    Int      @map("case_id")
+  author    String
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
+}

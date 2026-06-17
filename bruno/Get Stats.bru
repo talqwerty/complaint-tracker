@@ -1,0 +1,20 @@
+meta {
+  name: Get Stats
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/cases/stats
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.total: isNumber
+}
+
+docs {
+  Dashboard summary: total count, breakdown byStatus and byPriority.
+}

@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Complaint Tracker - Forth Smart Service</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; }
+
+    /* Header */
+    header {
+      background: linear-gradient(135deg, #1a365d, #2b6cb0);
+      color: white; padding: 16px 24px;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; }
+    header span { font-size: 0.85rem; opacity: 0.8; }
+
+    /* Layout */
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+
+    /* Stats */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card {
+      background: white; border-radius: 12px; padding: 20px;
+      text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      border-top: 4px solid #ccc;
+    }
+    .stat-card.open { border-color: #e53e3e; }
+    .stat-card.inprogress { border-color: #d69e2e; }
+    .stat-card.resolved { border-color: #38a169; }
+    .stat-card.closed { border-color: #718096; }
+    .stat-card.total { border-color: #3182ce; }
+    .stat-card .num { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .stat-card .label { font-size: 0.8rem; color: #718096; margin-top: 4px; }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      background: white; border-radius: 12px;
+      padding: 16px; margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .toolbar input, .toolbar select {
+      border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 8px 12px; font-size: 0.9rem; outline: none;
+    }
+    .toolbar input { flex: 1; min-width: 200px; }
+    .toolbar input:focus, .toolbar select:focus { border-color: #3182ce; }
+    .btn {
+      padding: 8px 18px; border-radius: 8px; border: none;
+      cursor: pointer; font-size: 0.9rem; font-weight: 600;
+      transition: all 0.15s;
+    }
+    .btn-primary { background: #3182ce; color: white; }
+    .btn-primary:hover { background: #2c5282; }
+    .btn-danger { background: #e53e3e; color: white; font-size: 0.8rem; padding: 5px 10px; }
+    .btn-danger:hover { background: #c53030; }
+    .btn-sm { font-size: 0.8rem; padding: 5px 12px; }
+
+    /* Table */
+    .table-wrap {
+      background: white; border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      background: #edf2f7; text-align: left;
+      padding: 12px 16px; font-size: 0.8rem;
+      color: #4a5568; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    td { padding: 12px 16px; border-bottom: 1px solid #f7fafc; font-size: 0.9rem; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f7fafc; cursor: pointer; }
+
+    /* Badges */
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 0.75rem; font-weight: 600;
+    }
+    .badge-open { background: #fff5f5; color: #c53030; }
+    .badge-inprogress { background: #fffbeb; color: #b7791f; }
+    .badge-resolved { background: #f0fff4; color: #276749; }
+    .badge-closed { background: #f7fafc; color: #4a5568; }
+    .badge-critical { background: #fff5f5; color: #c53030; }
+    .badge-high { background: #fffbeb; color: #c05621; }
+    .badge-medium { background: #ebf8ff; color: #2b6cb0; }
+    .badge-low { background: #f0fff4; color: #276749; }
+
+    /* Modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: white; border-radius: 16px; width: 100%;
+      max-width: 580px; max-height: 90vh; overflow-y: auto;
+      padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .modal h2 { font-size: 1.1rem; margin-bottom: 20px; color: #1a365d; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: #4a5568; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 9px 12px; font-size: 0.9rem; outline: none; font-family: inherit;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49,130,206,0.1);
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    /* Detail Panel */
+    .detail-panel {
+      display: none; position: fixed; right: 0; top: 0; bottom: 0;
+      width: 420px; background: white; z-index: 50;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.12);
+      overflow-y: auto; padding: 24px;
+    }
+    .detail-panel.active { display: block; }
+    .detail-panel .close-btn {
+      float: right; background: none; border: none;
+      font-size: 1.3rem; cursor: pointer; color: #718096;
+    }
+    .detail-header { margin-bottom: 20px; }
+    .detail-header h3 { font-size: 1rem; color: #1a365d; margin-bottom: 4px; }
+    .detail-meta { font-size: 0.8rem; color: #718096; }
+    .detail-section { margin-bottom: 20px; }
+    .detail-section h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: #718096; margin-bottom: 8px; }
+    .detail-field { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.88rem; }
+    .detail-field span:first-child { color: #718096; }
+    .status-select { border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 8px; font-size: 0.85rem; }
+    .notes-list { display: flex; flex-direction: column; gap: 10px; }
+    .note-item {
+      background: #f7fafc; border-radius: 8px; padding: 12px;
+      font-size: 0.85rem;
+    }
+    .note-item .note-author { font-weight: 600; color: #2b6cb0; }
+    .note-item .note-time { font-size: 0.75rem; color: #a0aec0; }
+    .note-form { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .note-form input, .note-form textarea {
+      border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 8px; font-size: 0.85rem; font-family: inherit; outline: none;
+    }
+    .note-form textarea { resize: vertical; min-height: 70px; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 60px 20px; color: #a0aec0; }
+    .empty .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #1a365d; color: white;
+      padding: 12px 20px; border-radius: 10px;
+      font-size: 0.9rem; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      opacity: 0; transition: opacity 0.3s; z-index: 200;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📋 Complaint Tracker</h1>
+    <span>Forth Smart Service — ระบบติดตาม Customer Complaint</span>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Stats -->
+  <div class="stats" id="stats">
+    <div class="stat-card total"><div class="num" id="stat-total">0</div><div class="label">ทั้งหมด</div></div>
+    <div class="stat-card open"><div class="num" id="stat-open">0</div><div class="label">Open</div></div>
+    <div class="stat-card inprogress"><div class="num" id="stat-inprogress">0</div><div class="label">In Progress</div></div>
+    <div class="stat-card resolved"><div class="num" id="stat-resolved">0</div><div class="label">Resolved</div></div>
+    <div class="stat-card closed"><div class="num" id="stat-closed">0</div><div class="label">Closed</div></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="🔍 ค้นหา ชื่อลูกค้า / เรื่อง / Case No." oninput="loadCases()" />
+    <select id="filter-status" onchange="loadCases()">
+      <option value="All">สถานะ: ทั้งหมด</option>
+      <option value="Open">Open</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Resolved">Resolved</option>
+      <option value="Closed">Closed</option>
+    </select>
+    <select id="filter-priority" onchange="loadCases()">
+      <option value="All">Priority: ทั้งหมด</option>
+      <option value="Critical">Critical</option>
+      <option value="High">High</option>
+      <option value="Medium">Medium</option>
+      <option value="Low">Low</option>
+    </select>
+    <button class="btn btn-primary" onclick="openCreateModal()">+ สร้าง Case ใหม่</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Case No.</th>
+          <th>ลูกค้า</th>
+          <th>ประเภท</th>
+          <th>เรื่อง</th>
+          <th>Priority</th>
+          <th>สถานะ</th>
+          <th>ผู้รับผิดชอบ</th>
+          <th>วันที่</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="case-list"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Create Case Modal -->
+<div class="modal-overlay" id="create-modal">
+  <div class="modal">
+    <h2>➕ สร้าง Case ใหม่</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>ชื่อลูกค้า *</label>
+        <input id="f-customer" type="text" placeholder="ชื่อลูกค้า" />
+      </div>
+      <div class="form-group">
+        <label>ช่องทางติดต่อ</label>
+        <input id="f-contact" type="text" placeholder="เบอร์โทร / Email" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>ประเภทปัญหา *</label>
+        <select id="f-category">
+          <option>สินค้าชำรุด</option>
+          <option>บริการล่าช้า</option>
+          <option>คำถามด้านเทคนิค</option>
+          <option>การเรียกเก็บเงิน</option>
+          <option>อื่นๆ</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Priority *</label>
+        <select id="f-priority">
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+          <option value="Critical">Critical</option>
+          <option value="Low">Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>เรื่อง / หัวข้อ *</label>
+      <input id="f-subject" type="text" placeholder="สรุปปัญหาสั้นๆ" />
+    </div>
+    <div class="form-group">
+      <label>รายละเอียด</label>
+      <textarea id="f-desc" rows="3" placeholder="อธิบายปัญหาเพิ่มเติม"></textarea>
+    </div>
+    <div class="form-group">
+      <label>ผู้รับผิดชอบ</label>
+      <input id="f-assignee" type="text" placeholder="ชื่อเจ้าหน้าที่" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn" style="background:#edf2f7" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="createCase()">สร้าง Case</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Panel -->
+<div class="detail-panel" id="detail-panel">
+  <button class="close-btn" onclick="closeDetail()">✕</button>
+  <div class="detail-header">
+    <h3 id="d-subject"></h3>
+    <div class="detail-meta" id="d-meta"></div>
+  </div>
+
+  <div class="detail-section">
+    <h4>ข้อมูล Case</h4>
+    <div class="detail-field"><span>หมายเลข Case</span><span id="d-number"></span></div>
+    <div class="detail-field"><span>ลูกค้า</span><span id="d-customer"></span></div>
+    <div class="detail-field"><span>ติดต่อ</span><span id="d-contact"></span></div>
+    <div class="detail-field"><span>ประเภท</span><span id="d-category"></span></div>
+    <div class="detail-field"><span>Priority</span><span id="d-priority"></span></div>
+    <div class="detail-field">
+      <span>สถานะ</span>
+      <select class="status-select" id="d-status" onchange="updateStatus()">
+        <option value="Open">Open</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Resolved">Resolved</option>
+        <option value="Closed">Closed</option>
+      </select>
+    </div>
+    <div class="detail-field"><span>ผู้รับผิดชอบ</span><span id="d-assignee"></span></div>
+  </div>
+
+  <div class="detail-section">
+    <h4>รายละเอียด</h4>
+    <p id="d-desc" style="font-size:0.88rem;color:#4a5568;"></p>
+  </div>
+
+  <div class="detail-section">
+    <h4>บันทึก / Notes</h4>
+    <div class="notes-list" id="d-notes"></div>
+    <div class="note-form">
+      <input id="note-author" type="text" placeholder="ชื่อคุณ" />
+      <textarea id="note-content" placeholder="เพิ่มบันทึก..."></textarea>
+      <button class="btn btn-primary btn-sm" onclick="addNote()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:3000/api';
+let currentCaseId = null;
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function statusBadge(s) {
+  const cls = s === 'Open' ? 'open' : s === 'In Progress' ? 'inprogress' : s === 'Resolved' ? 'resolved' : 'closed';
+  return `<span class="badge badge-${cls}">${s}</span>`;
+}
+function priorityBadge(p) {
+  const cls = p.toLowerCase();
+  return `<span class="badge badge-${cls}">${p}</span>`;
+}
+function fmtDate(d) {
+  return new Date(d).toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+async function loadStats() {
+  const r = await fetch(`${API}/cases/stats`);
+  const data = await r.json();
+  document.getElementById('stat-total').textContent = data.total;
+  const map = {};
+  data.byStatus.forEach(s => map[s.status] = s.count);
+  document.getElementById('stat-open').textContent = map['Open'] || 0;
+  document.getElementById('stat-inprogress').textContent = map['In Progress'] || 0;
+  document.getElementById('stat-resolved').textContent = map['Resolved'] || 0;
+  document.getElementById('stat-closed').textContent = map['Closed'] || 0;
+}
+
+async function loadCases() {
+  const search = document.getElementById('search').value;
+  const status = document.getElementById('filter-status').value;
+  const priority = document.getElementById('filter-priority').value;
+  const params = new URLSearchParams({ search, status, priority });
+  const r = await fetch(`${API}/cases?${params}`);
+  const cases = await r.json();
+  const tbody = document.getElementById('case-list');
+
+  if (cases.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><div class="icon">📭</div><div>ไม่พบ Case</div></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = cases.map(c => `
+    <tr onclick="openDetail(${c.id})">
+      <td><strong>${c.case_number}</strong></td>
+      <td>${c.customer_name}</td>
+      <td>${c.category}</td>
+      <td>${c.subject}</td>
+      <td>${priorityBadge(c.priority)}</td>
+      <td>${statusBadge(c.status)}</td>
+      <td>${c.assignee || '-'}</td>
+      <td>${fmtDate(c.created_at)}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn btn-danger" onclick="deleteCase(${c.id})">ลบ</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openCreateModal() {
+  document.getElementById('create-modal').classList.add('active');
+}
+function closeModal() {
+  document.getElementById('create-modal').classList.remove('active');
+  ['f-customer','f-contact','f-subject','f-desc','f-assignee'].forEach(id => document.getElementById(id).value = '');
+}
+
+async function createCase() {
+  const body = {
+    customer_name: document.getElementById('f-customer').value.trim(),
+    customer_contact: document.getElementById('f-contact').value.trim(),
+    category: document.getElementById('f-category').value,
+    priority: document.getElementById('f-priority').value,
+    subject: document.getElementById('f-subject').value.trim(),
+    description: document.getElementById('f-desc').value.trim(),
+    assignee: document.getElementById('f-assignee').value.trim()
+  };
+  if (!body.customer_name || !body.subject) { showToast('⚠️ กรุณากรอกชื่อลูกค้าและเรื่อง'); return; }
+
+  const r = await fetch(`${API}/cases`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (r.ok) {
+    const c = await r.json();
+    closeModal(); loadCases(); loadStats();
+    showToast(`✅ สร้าง Case ${c.case_number} สำเร็จ`);
+  }
+}
+
+async function openDetail(id) {
+  currentCaseId = id;
+  const r = await fetch(`${API}/cases/${id}`);
+  const c = await r.json();
+
+  document.getElementById('d-subject').textContent = c.subject;
+  document.getElementById('d-meta').textContent = `${c.case_number} · ${fmtDate(c.created_at)}`;
+  document.getElementById('d-number').textContent = c.case_number;
+  document.getElementById('d-customer').textContent = c.customer_name;
+  document.getElementById('d-contact').textContent = c.customer_contact || '-';
+  document.getElementById('d-category').textContent = c.category;
+  document.getElementById('d-priority').innerHTML = priorityBadge(c.priority);
+  document.getElementById('d-status').value = c.status;
+  document.getElementById('d-assignee').textContent = c.assignee || '-';
+  document.getElementById('d-desc').textContent = c.description || '-';
+
+  document.getElementById('d-notes').innerHTML = c.notes.length === 0
+    ? '<div style="color:#a0aec0;font-size:0.85rem;">ยังไม่มีบันทึก</div>'
+    : c.notes.map(n => `
+        <div class="note-item">
+          <div style="display:flex;justify-content:space-between;">
+            <span class="note-author">${n.author}</span>
+            <span class="note-time">${fmtDate(n.created_at)}</span>
+          </div>
+          <div style="margin-top:6px;">${n.content}</div>
+        </div>
+      `).join('');
+
+  document.getElementById('detail-panel').classList.add('active');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('active');
+  currentCaseId = null;
+}
+
+async function updateStatus() {
+  if (!currentCaseId) return;
+  const status = document.getElementById('d-status').value;
+  await fetch(`${API}/cases/${currentCaseId}`, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ status })
+  });
+  loadCases(); loadStats();
+  showToast(`✅ อัปเดตสถานะเป็น "${status}"`);
+}
+
+async function addNote() {
+  if (!currentCaseId) return;
+  const author = document.getElementById('note-author').value.trim();
+  const content = document.getElementById('note-content').value.trim();
+  if (!author || !content) { showToast('⚠️ กรุณากรอกชื่อและบันทึก'); return; }
+
+  await fetch(`${API}/cases/${currentCaseId}/notes`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ author, content })
+  });
+  document.getElementById('note-content').value = '';
+  openDetail(currentCaseId);
+  showToast('✅ บันทึก Note สำเร็จ');
+}
+
+async function deleteCase(id) {
+  if (!confirm('ยืนยันการลบ Case นี้?')) return;
+  await fetch(`${API}/cases/${id}`, { method: 'DELETE' });
+  closeDetail(); loadCases(); loadStats();
+  showToast('🗑️ ลบ Case แล้ว');
+}
+
+// Init
+loadStats();
+loadCases();
+</script>
+</body>
+</html>
