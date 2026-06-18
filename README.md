@@ -51,7 +51,8 @@ pnpm dev:web            # Next.js → http://localhost:3000
 ```
 
 ตั้งค่า env:
-- `apps/api/.env` — `DATABASE_URL`, `PORT` (3001), `CORS_ORIGIN`, `JWT_SECRET`, `JWT_EXPIRES_IN`
+- `apps/api/.env` — `DATABASE_URL`, `PORT` (3001), `CORS_ORIGIN`, `JWT_SECRET`, `JWT_EXPIRES_IN`,
+  `S3_*` (แนบรูป), `LINE_*` (แจ้งเตือน) — ดู `apps/api/.env.example`
 - `apps/web/.env.local` — `NEXT_PUBLIC_API_URL` (`http://localhost:3001/api`)
 
 ## Quality gates
@@ -66,7 +67,7 @@ pnpm check              # ทั้งหมดข้างบนเรียง
 
 ## Testing
 
-Unit test ฝั่ง API (Jest) — 26 tests (3 suites), mock `PrismaService`/`CasesService`/`UsersService`+`JwtService` ไม่แตะ DB จริง:
+Unit test ฝั่ง API (Jest) — 34 tests (4 suites), mock dependencies ทั้งหมด ไม่แตะ DB/S3/LINE จริง:
 
 ```bash
 pnpm test                      # รัน api tests
@@ -74,9 +75,10 @@ pnpm --filter api test:cov     # + coverage (service/controller/dto ~100%)
 pnpm --filter api test:watch
 ```
 
-- `src/cases/cases.service.spec.ts` — business logic (case number, filter, stats, update, notes, 404)
+- `src/cases/cases.service.spec.ts` — business logic (case number, filter, stats, update, notes, attachments, LINE, 404)
 - `src/cases/cases.controller.spec.ts` — delegation ไป service (override JwtAuthGuard)
 - `src/auth/auth.service.spec.ts` — validateUser / login (mock bcrypt + JwtService)
+- `src/notifications/line.service.spec.ts` — push / skip-when-disabled (mock fetch)
 
 ## API testing (Bruno)
 
@@ -123,13 +125,31 @@ Base path: `/api` — `/cases*` ต้องมี Bearer token
 | POST   | `/cases`              | ✓    | สร้างเคส (auto `CST{YYYYMM}{NNNN}`) |
 | PATCH  | `/cases/:id`          | ✓    | แก้ status / assignee / priority / contact |
 | POST   | `/cases/:id/notes`    | ✓    | เพิ่มบันทึก                       |
-| DELETE | `/cases/:id`          | ✓    | ลบเคส (ลบ notes แบบ cascade)      |
+| DELETE | `/cases/:id`          | ✓    | ลบเคส (ลบ notes/attachments แบบ cascade) |
+| POST   | `/cases/:id/attachments` | ✓ | อัปโหลดรูป (multipart `file`, image ≤ 5MB) |
+| DELETE | `/cases/:id/attachments/:attachmentId` | ✓ | ลบรูปแนบ              |
+
+## Features: แนบรูป + แจ้งเตือน LINE
+
+**แนบรูป** — เก็บบน S3-compatible storage (AWS S3 / Cloudflare R2 / Supabase) ผ่าน `@aws-sdk/client-s3`.
+ตั้ง `S3_*` ใน `apps/api/.env`:
+- `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION`
+- `S3_PUBLIC_URL` (ถ้า bucket public) — ไม่งั้นใช้ signed URL อายุ 1 ชม.
+- ถ้าไม่ตั้งค่า → อัปโหลดถูก disable (UI ยังใช้ส่วนอื่นได้). อัปโหลด/ลบรูปได้จาก case detail dialog
+
+**แจ้งเตือน LINE** — push เมื่อสร้างเคสใหม่ ผ่าน LINE Messaging API (LINE Notify ปิดแล้ว มี.ค. 2025).
+ตั้ง `LINE_CHANNEL_ACCESS_TOKEN` + `LINE_TARGET_ID` ใน `.env`:
+1. สร้าง LINE Official Account + Messaging API channel ใน [LINE Developers](https://developers.line.biz/)
+2. เอา **Channel Access Token** → `LINE_CHANNEL_ACCESS_TOKEN`
+3. หา target (userId/groupId ที่ add bot แล้ว) → `LINE_TARGET_ID`
+4. ถ้าไม่ตั้งค่า → แจ้งเตือนถูก skip (สร้างเคสยังทำงานปกติ)
 
 ## Data model (Prisma)
 
 - `User` — `email` (unique), `password` (bcrypt hash), `name`, `role`, timestamps
 - `Case` — `caseNumber` (unique), `customerName`, `category`, `priority`, `subject`, `status`, `assignee`, timestamps
 - `Note` — `caseId` → `Case`, `author`, `content`, `createdAt`
+- `Attachment` — `caseId` → `Case`, `key` (storage key), `filename`, `mimetype`, `size`, `createdAt`
 
 ## UI / design system
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { TrashIcon } from "@phosphor-icons/react";
+import { useEffect, useRef, useState } from "react";
+import { PaperclipIcon, TrashIcon, XIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,8 @@ export function CaseDetailDialog({ caseId, open, onOpenChange, onChanged }: Prop
   const [noteAuthor, setNoteAuthor] = useState("");
   const [noteContent, setNoteContent] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Derived: showing stale/empty detail while the requested case loads.
   const loading = open && caseId != null && detail?.id !== caseId;
@@ -119,6 +121,37 @@ export function CaseDetailDialog({ caseId, open, onOpenChange, onChanged }: Prop
     }
   }
 
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!detail || !file) return;
+
+    setUploading(true);
+    try {
+      const attachment = await api.uploadAttachment(detail.id, file);
+      setDetail({ ...detail, attachments: [...detail.attachments, attachment] });
+      toast.success("แนบรูปแล้ว");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "แนบรูปไม่สำเร็จ");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleDeleteAttachment(attachmentId: number) {
+    if (!detail) return;
+    try {
+      await api.deleteAttachment(detail.id, attachmentId);
+      setDetail({
+        ...detail,
+        attachments: detail.attachments.filter((a) => a.id !== attachmentId),
+      });
+      toast.success("ลบรูปแล้ว");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "ลบรูปไม่สำเร็จ");
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -194,6 +227,67 @@ export function CaseDetailDialog({ caseId, open, onOpenChange, onChanged }: Prop
                   </span>
                 ) : null}
               </div>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">
+                  รูปแนบ ({detail.attachments.length})
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleUpload}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <PaperclipIcon weight="bold" />
+                  {uploading ? "กำลังอัปโหลด..." : "แนบรูป"}
+                </Button>
+              </div>
+
+              {detail.attachments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">ยังไม่มีรูปแนบ</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {detail.attachments.map((a) => (
+                    <div
+                      key={a.id}
+                      className="group relative aspect-square overflow-hidden rounded-lg border bg-muted"
+                    >
+                      {a.url ? (
+                        <a href={a.url} target="_blank" rel="noopener noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={a.url}
+                            alt={a.filename}
+                            className="h-full w-full object-cover"
+                          />
+                        </a>
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center p-1 text-center text-[10px] text-muted-foreground">
+                          {a.filename}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAttachment(a.id)}
+                        title="ลบรูป"
+                        className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-md bg-background/80 text-destructive opacity-0 transition-opacity group-hover:opacity-100"
+                      >
+                        <XIcon weight="bold" className="size-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="grid gap-2">

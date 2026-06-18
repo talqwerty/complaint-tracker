@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "description": "ระบบติดตาม Customer Complaint — Forth Smart Service (Next.js + NestJS + shadcn)",
+  "packageManager": "pnpm@11.7.0",
   "scripts": {
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
     "dev:web": "pnpm --filter web dev",

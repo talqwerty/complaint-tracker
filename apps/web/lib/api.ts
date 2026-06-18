@@ -24,6 +24,17 @@ export interface Note {
   createdAt: string;
 }
 
+export interface Attachment {
+  id: number;
+  caseId: number;
+  key: string;
+  filename: string;
+  mimetype: string;
+  size: number;
+  createdAt: string;
+  url: string | null;
+}
+
 export interface Case {
   id: number;
   caseNumber: string;
@@ -41,6 +52,7 @@ export interface Case {
 
 export interface CaseDetail extends Case {
   notes: Note[];
+  attachments: Attachment[];
 }
 
 export interface Stats {
@@ -169,5 +181,43 @@ export const api = {
 
   deleteCase(id: number): Promise<{ message: string }> {
     return request<{ message: string }>(`/cases/${id}`, { method: "DELETE" });
+  },
+
+  async uploadAttachment(caseId: number, file: File): Promise<Attachment> {
+    const token = getToken();
+    const form = new FormData();
+    form.append("file", file);
+
+    // Do NOT set Content-Type — the browser adds the multipart boundary.
+    const res = await fetch(`${API_BASE}/cases/${caseId}/attachments`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+
+    if (res.status === 401) {
+      clearToken();
+      if (typeof window !== "undefined") window.location.href = "/login";
+    }
+    if (!res.ok) {
+      let message = `อัปโหลดไม่สำเร็จ (${res.status})`;
+      try {
+        const body = await res.json();
+        if (body?.message) {
+          message = Array.isArray(body.message) ? body.message.join(", ") : body.message;
+        }
+      } catch {
+        // ignore non-JSON error bodies
+      }
+      throw new Error(message);
+    }
+    return res.json() as Promise<Attachment>;
+  },
+
+  deleteAttachment(caseId: number, attachmentId: number): Promise<{ message: string }> {
+    return request<{ message: string }>(
+      `/cases/${caseId}/attachments/${attachmentId}`,
+      { method: "DELETE" },
+    );
   },
 };

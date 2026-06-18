@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { CasesService } from './cases.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
+import { LineService } from '../notifications/line.service';
 
 type PrismaMock = {
   case: {
@@ -16,6 +18,11 @@ type PrismaMock = {
   };
   note: {
     create: jest.Mock;
+  };
+  attachment: {
+    findUnique: jest.Mock;
+    create: jest.Mock;
+    delete: jest.Mock;
   };
 };
 
@@ -34,19 +41,44 @@ function createPrismaMock(): PrismaMock {
     note: {
       create: jest.fn(),
     },
+    attachment: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+    },
   };
 }
 
 describe('CasesService', () => {
   let service: CasesService;
   let prisma: PrismaMock;
+  let storage: {
+    isEnabled: jest.Mock;
+    upload: jest.Mock;
+    getUrl: jest.Mock;
+    delete: jest.Mock;
+  };
+  let line: { pushCaseCreated: jest.Mock; pushCaseStatusChanged: jest.Mock };
 
   beforeEach(async () => {
     prisma = createPrismaMock();
+    storage = {
+      isEnabled: jest.fn().mockReturnValue(false),
+      upload: jest.fn(),
+      getUrl: jest.fn(),
+      delete: jest.fn(),
+    };
+    line = {
+      pushCaseCreated: jest.fn().mockResolvedValue(undefined),
+      pushCaseStatusChanged: jest.fn().mockResolvedValue(undefined),
+    };
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         CasesService,
         { provide: PrismaService, useValue: prisma },
+        { provide: StorageService, useValue: storage },
+        { provide: LineService, useValue: line },
       ],
     }).compile();
 
@@ -69,6 +101,8 @@ describe('CasesService', () => {
       expect(data.caseNumber).toMatch(/^CST\d{6}0001$/);
       expect(data.priority).toBe('Medium');
       expect(result.caseNumber).toMatch(/^CST\d{6}0001$/);
+      // notifies LINE on creation
+      expect(line.pushCaseCreated).toHaveBeenCalledTimes(1);
     });
 
     it('increments the sequence from the latest case number', async () => {
@@ -129,17 +163,41 @@ describe('CasesService', () => {
   });
 
   describe('findOne', () => {
-    it('returns the case including its notes', async () => {
-      const found = { id: 1, caseNumber: 'CST2026060001', notes: [] };
+    it('returns the case with notes and attachments', async () => {
+      const found = {
+        id: 1,
+        caseNumber: 'CST2026060001',
+        notes: [],
+        attachments: [],
+      };
       prisma.case.findUnique.mockResolvedValue(found);
 
       const result = await service.findOne(1);
 
       expect(prisma.case.findUnique).toHaveBeenCalledWith({
         where: { id: 1 },
-        include: { notes: { orderBy: { createdAt: 'asc' } } },
+        include: {
+          notes: { orderBy: { createdAt: 'asc' } },
+          attachments: { orderBy: { createdAt: 'asc' } },
+        },
       });
-      expect(result).toBe(found);
+      expect(result).toMatchObject({ id: 1, caseNumber: 'CST2026060001' });
+      expect(result.attachments).toEqual([]);
+    });
+
+    it('adds signed URLs to attachments when storage is enabled', async () => {
+      prisma.case.findUnique.mockResolvedValue({
+        id: 1,
+        notes: [],
+        attachments: [{ id: 7, key: 'cases/1/abc.png' }],
+      });
+      storage.isEnabled.mockReturnValue(true);
+      storage.getUrl.mockResolvedValue('https://cdn/cases/1/abc.png');
+
+      const result = await service.findOne(1);
+
+      expect(storage.getUrl).toHaveBeenCalledWith('cases/1/abc.png');
+      expect(result.attachments[0].url).toBe('https://cdn/cases/1/abc.png');
     });
 
     it('throws NotFoundException when the case does not exist', async () => {
@@ -150,7 +208,7 @@ describe('CasesService', () => {
 
   describe('update', () => {
     it('patches only the provided fields', async () => {
-      prisma.case.findUnique.mockResolvedValue({ id: 1 });
+      prisma.case.findUnique.mockResolvedValue({ id: 1, status: 'Open' });
       prisma.case.update.mockResolvedValue({ id: 1, status: 'Resolved' });
 
       await service.update(1, { status: 'Resolved' });
@@ -159,6 +217,26 @@ describe('CasesService', () => {
         where: { id: 1 },
         data: { status: 'Resolved' },
       });
+    });
+
+    it('notifies LINE with the old and new status on a status change', async () => {
+      prisma.case.findUnique.mockResolvedValue({ id: 1, status: 'Open' });
+      const updated = { id: 1, status: 'Resolved' };
+      prisma.case.update.mockResolvedValue(updated);
+
+      await service.update(1, { status: 'Resolved' });
+
+      expect(line.pushCaseStatusChanged).toHaveBeenCalledTimes(1);
+      expect(line.pushCaseStatusChanged).toHaveBeenCalledWith(updated, 'Open');
+    });
+
+    it('does not notify LINE when the status is unchanged', async () => {
+      prisma.case.findUnique.mockResolvedValue({ id: 1, status: 'Open' });
+      prisma.case.update.mockResolvedValue({ id: 1, status: 'Open', assignee: 'bob' });
+
+      await service.update(1, { status: 'Open', assignee: 'bob' });
+
+      expect(line.pushCaseStatusChanged).not.toHaveBeenCalled();
     });
 
     it('returns the current record without updating when patch is empty', async () => {
@@ -224,6 +302,71 @@ describe('CasesService', () => {
       prisma.case.findUnique.mockResolvedValue(null);
       await expect(service.remove(404)).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.case.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('addAttachment', () => {
+    const file = {
+      originalname: 'photo.png',
+      mimetype: 'image/png',
+      size: 1234,
+      buffer: Buffer.from('x'),
+    } as Express.Multer.File;
+
+    it('uploads to storage, stores the row, and returns a URL', async () => {
+      prisma.case.findUnique.mockResolvedValue({ id: 1 }); // ensureExists
+      prisma.attachment.create.mockImplementation(({ data }) =>
+        Promise.resolve({ id: 5, ...data }),
+      );
+      storage.getUrl.mockResolvedValue('https://cdn/file.png');
+
+      const result = await service.addAttachment(1, file);
+
+      expect(storage.upload).toHaveBeenCalledTimes(1);
+      const [key, buffer, mime] = storage.upload.mock.calls[0];
+      expect(key).toMatch(/^cases\/1\/.+\.png$/);
+      expect(buffer).toBe(file.buffer);
+      expect(mime).toBe('image/png');
+      expect(prisma.attachment.create).toHaveBeenCalledTimes(1);
+      expect(result.url).toBe('https://cdn/file.png');
+      expect(result.filename).toBe('photo.png');
+    });
+
+    it('throws NotFoundException for a missing case', async () => {
+      prisma.case.findUnique.mockResolvedValue(null);
+      await expect(service.addAttachment(404, file)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(storage.upload).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('removeAttachment', () => {
+    it('deletes from storage and DB when it belongs to the case', async () => {
+      prisma.attachment.findUnique.mockResolvedValue({
+        id: 5,
+        caseId: 1,
+        key: 'cases/1/abc.png',
+      });
+      prisma.attachment.delete.mockResolvedValue({ id: 5 });
+
+      const result = await service.removeAttachment(1, 5);
+
+      expect(storage.delete).toHaveBeenCalledWith('cases/1/abc.png');
+      expect(prisma.attachment.delete).toHaveBeenCalledWith({ where: { id: 5 } });
+      expect(result).toEqual({ message: 'Attachment deleted successfully' });
+    });
+
+    it('throws NotFoundException when the attachment is on another case', async () => {
+      prisma.attachment.findUnique.mockResolvedValue({
+        id: 5,
+        caseId: 999,
+        key: 'k',
+      });
+      await expect(service.removeAttachment(1, 5)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.attachment.delete).not.toHaveBeenCalled();
     });
   });
 });
