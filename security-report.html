@@ -64,6 +64,17 @@
   .badge.med  { background: var(--med); }
   .badge.low  { background: var(--low); }
   .badge.info { background: var(--info); }
+  .badge.fixed { background: #2f7d4f; }
+  .badge.partial { background: #6b8e23; }
+
+  .remediation { background: #f1f6f2; border: 1px solid #d6e4d8; border-radius: 14px; padding: 20px 24px; margin: 24px 0; }
+  .remediation h3 { font-size: 15px; margin: 0 0 10px; }
+  .remediation ul { margin: 0; padding-left: 18px; }
+  .remediation li { margin: 5px 0; font-size: 14px; }
+  .remediation .commit { font-family: ui-monospace, monospace; font-size: 12px; background: #e3ece4; padding: 1px 6px; border-radius: 4px; }
+  .row.done { border-left: 3px solid #2f7d4f; padding-left: 14px; }
+  .row.done .k { color: #2f7d4f; }
+  tbody td .mini { display:inline-block; font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:#fff; background:#2f7d4f; padding:1px 6px; border-radius:4px; margin-left:8px; vertical-align:middle; }
 
   /* summary table */
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -113,8 +124,19 @@
 </header>
 
 <div class="banner">
-  <div class="grade">C<small>Risk Posture</small></div>
-  <p>Solid fundamentals — Prisma parameterised queries, bcrypt hashing, DTO validation, JWT auth on every case route. But <b>authorization is missing entirely</b> (no role checks), brute-force / default-secret / default-credential exposure is significant, and the JWT lives in a JavaScript-readable cookie. Two Critical items should be fixed before any real-world use.</p>
+  <div class="grade">B<small>Posture (was C)</small></div>
+  <p>Solid fundamentals — Prisma parameterised queries, bcrypt hashing, DTO validation, JWT auth on every case route. The two Critical findings (F-01 missing RBAC, F-02 weak JWT secret) and two High findings (F-03 default credentials, F-04 no login rate limit) have now been <b>remediated and deployed to production</b>. Remaining work is the open High items (F-05 cookie flags, F-06 CORS) plus the Medium/Low hardening backlog.</p>
+</div>
+
+<div class="remediation">
+  <h3>✅ Remediated &amp; deployed — F-01 to F-04 <span class="commit">commit 054d28d · main</span></h3>
+  <ul>
+    <li><b>F-01 RBAC</b> — added <code>@Roles</code> decorator + <code>RolesGuard</code>; <code>DELETE</code> case &amp; attachment now require the <code>admin</code> role. Covered by <code>roles.guard.spec.ts</code>.</li>
+    <li><b>F-02 JWT secret</b> — <code>AuthModule</code> fails fast on boot if <code>JWT_SECRET</code> is the default <code>change-me</code> or shorter than 32 chars. Production secret verified at 64 chars.</li>
+    <li><b>F-03 Default credentials</b> — seed no longer hard-codes a password (reads <code>SEED_*_PASSWORD</code> env or generates a random one and prints it); credential hint removed from the login page; <code>DEPLOY.md</code> updated.</li>
+    <li><b>F-04 Rate limit</b> — added <code>@nestjs/throttler</code> (global 100/min/IP, login 5/min/IP) + <code>trust proxy</code> so the limiter keys on the real client IP behind Railway's edge. Verified live: the 6th login within a minute returns <code>429</code>.</li>
+  </ul>
+  <p style="margin:10px 0 0;font-size:13px;color:#4a6b50;">Validated against production after deploy: boot succeeds (no weak-secret abort), and <code>POST /api/auth/login</code> returns <code>429</code> after 5 attempts/min from the same client. All 46 API unit tests pass.</p>
 </div>
 
 <div class="tally">
@@ -131,10 +153,10 @@
     <tr><th style="width:64px">ID</th><th style="width:110px">Severity</th><th>Finding</th><th style="width:150px">Area</th></tr>
   </thead>
   <tbody>
-    <tr><td><a href="#f01">F-01</a></td><td><span class="badge crit">Critical</span></td><td>No authorization / RBAC — any logged-in user can do everything</td><td>Access Control</td></tr>
-    <tr><td><a href="#f02">F-02</a></td><td><span class="badge crit">Critical</span></td><td>Weak / default JWT secret enables token forgery</td><td>Crypto / Auth</td></tr>
-    <tr><td><a href="#f03">F-03</a></td><td><span class="badge high">High</span></td><td>Default seeded credentials documented & shown in the UI</td><td>Auth</td></tr>
-    <tr><td><a href="#f04">F-04</a></td><td><span class="badge high">High</span></td><td>No rate limiting / lockout on login (brute force)</td><td>Auth</td></tr>
+    <tr><td><a href="#f01">F-01</a></td><td><span class="badge crit">Critical</span></td><td>No authorization / RBAC — any logged-in user can do everything <span class="mini">Fixed</span></td><td>Access Control</td></tr>
+    <tr><td><a href="#f02">F-02</a></td><td><span class="badge crit">Critical</span></td><td>Weak / default JWT secret enables token forgery <span class="mini">Fixed</span></td><td>Crypto / Auth</td></tr>
+    <tr><td><a href="#f03">F-03</a></td><td><span class="badge high">High</span></td><td>Default seeded credentials documented & shown in the UI <span class="mini">Fixed</span></td><td>Auth</td></tr>
+    <tr><td><a href="#f04">F-04</a></td><td><span class="badge high">High</span></td><td>No rate limiting / lockout on login (brute force) <span class="mini">Fixed</span></td><td>Auth</td></tr>
     <tr><td><a href="#f05">F-05</a></td><td><span class="badge high">High</span></td><td>JWT in a non-HttpOnly, non-Secure cookie (XSS theft)</td><td>Session</td></tr>
     <tr><td><a href="#f06">F-06</a></td><td><span class="badge high">High</span></td><td>CORS falls back to wildcard <code>*</code> when unset</td><td>Config</td></tr>
     <tr><td><a href="#f07">F-07</a></td><td><span class="badge med">Medium</span></td><td>File upload trusts client MIME — SVG → stored XSS</td><td>Upload</td></tr>
@@ -154,7 +176,7 @@
 
 <!-- F-01 -->
 <div class="finding" id="f01">
-  <div class="top"><span class="id">F-01</span><span class="badge crit">Critical</span><h3>No authorization / RBAC — any authenticated user can do everything</h3><span class="owasp">OWASP A01:2021</span></div>
+  <div class="top"><span class="id">F-01</span><span class="badge crit">Critical</span><span class="badge fixed">Fixed</span><h3>No authorization / RBAC — any authenticated user can do everything</h3><span class="owasp">OWASP A01:2021</span></div>
   <p>Every <code>cases</code> route is protected only by <code>@UseGuards(JwtAuthGuard)</code>, which proves <i>authentication</i> but never checks <i>authorization</i>. The <code>role</code> field exists on the user model and is carried in the JWT, yet it is never read anywhere in the codebase. A low-privilege <code>staff</code> user can delete any case, delete attachments, and patch any record — identical to <code>admin</code>.</p>
   <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/cases/cases.controller.ts:26,68 · grep for "role" → only set in JWT, never enforced</div></div>
   <div class="row"><div class="k">Evidence</div>
@@ -165,6 +187,7 @@ export class CasesController { ...
   remove(@Param('id', ParseIntPipe) id: number) { ... }   // no role guard</code></pre>
   </div>
   <div class="row"><div class="k">Impact</div><div>Privilege escalation by design — destructive operations (case/attachment deletion) are open to the least-privileged account.</div></div>
+  <div class="row done"><div class="k">Status — Fixed</div><div>Added <code>RolesGuard</code> + <code>@Roles('admin')</code> on <code>DELETE /cases/:id</code> and <code>DELETE /cases/:id/attachments/:attachmentId</code>; <code>RolesGuard</code> applied controller-wide alongside <code>JwtAuthGuard</code>. Unit-tested in <code>roles.guard.spec.ts</code>. Deployed (commit 054d28d).</div></div>
   <div class="row fix"><div class="k">Remediation</div>
     <ul>
       <li>Add a <code>@Roles('admin')</code> decorator + <code>RolesGuard</code> and apply it to destructive routes (<code>DELETE</code>, sensitive <code>PATCH</code>).</li>
@@ -176,11 +199,12 @@ export class CasesController { ...
 
 <!-- F-02 -->
 <div class="finding" id="f02">
-  <div class="top"><span class="id">F-02</span><span class="badge crit">Critical</span><h3>Weak / default JWT secret enables token forgery</h3><span class="owasp">OWASP A02:2021</span></div>
+  <div class="top"><span class="id">F-02</span><span class="badge crit">Critical</span><span class="badge fixed">Fixed</span><h3>Weak / default JWT secret enables token forgery</h3><span class="owasp">OWASP A02:2021</span></div>
   <p>The shipped <code>.env.example</code> sets <code>JWT_SECRET="change-me"</code>. <code>config.getOrThrow('JWT_SECRET')</code> validates that a value exists, but not that it is strong or non-default. If the app is deployed with the example value (or any guessable secret), an attacker can forge a valid JWT for any user — and because role is encoded in the token (F-01), forge <code>role:"admin"</code> too. This is a full authentication bypass.</p>
   <div class="row"><div class="k">Location</div><div class="loc">apps/api/.env.example:4 · apps/api/src/auth/auth.module.ts:17 · jwt.strategy.ts:20</div></div>
   <div class="row"><div class="k">Evidence</div><pre><code>JWT_SECRET="change-me"   # .env.example — copied verbatim by many deploys</code></pre></div>
   <div class="row"><div class="k">Impact</div><div>Forged tokens → complete account takeover and privilege escalation.</div></div>
+  <div class="row done"><div class="k">Status — Fixed</div><div><code>AuthModule</code> now throws on boot when <code>JWT_SECRET</code> equals <code>change-me</code> or is shorter than 32 chars; <code>.env.example</code> ships an empty value with a generation hint. Production secret confirmed at 64 chars (boot succeeds). Deployed (commit 054d28d).</div></div>
   <div class="row fix"><div class="k">Remediation</div>
     <ul>
       <li>Generate a high-entropy secret per environment (<code>openssl rand -base64 48</code>); never reuse the example.</li>
@@ -192,10 +216,11 @@ export class CasesController { ...
 
 <!-- F-03 -->
 <div class="finding" id="f03">
-  <div class="top"><span class="id">F-03</span><span class="badge high">High</span><h3>Default seeded credentials documented and printed in the UI</h3><span class="owasp">OWASP A07:2021</span></div>
+  <div class="top"><span class="id">F-03</span><span class="badge high">High</span><span class="badge fixed">Fixed</span><h3>Default seeded credentials documented and printed in the UI</h3><span class="owasp">OWASP A07:2021</span></div>
   <p>The seed creates <code>admin@forth.com</code> / <code>password123</code> and <code>staff@forth.com</code> / <code>password123</code>. These exact credentials appear in <code>DEPLOY.md</code>, the README, and are <b>rendered on the production login page</b>. If the seed is run against a real deployment and the password isn't rotated, anyone can log in as admin.</p>
   <div class="row"><div class="k">Location</div><div class="loc">apps/api/prisma/seed.ts:7-8 · apps/web/app/login/page.tsx:90 ("ทดสอบ: admin@forth.com / password123")</div></div>
   <div class="row"><div class="k">Impact</div><div>Trivial unauthenticated takeover of a freshly seeded instance.</div></div>
+  <div class="row done"><div class="k">Status — Fixed</div><div>Seed reads <code>SEED_ADMIN_PASSWORD</code> / <code>SEED_STAFF_PASSWORD</code> or generates a random per-user password and prints it once; no hard-coded <code>password123</code>. The credential hint was removed from the login page and <code>DEPLOY.md</code> updated. Deployed (commit 054d28d). Note: existing prod users keep their current password — rotate them.</div></div>
   <div class="row fix"><div class="k">Remediation</div>
     <ul>
       <li>Remove the credential hint from the login page in production builds.</li>
@@ -207,10 +232,11 @@ export class CasesController { ...
 
 <!-- F-04 -->
 <div class="finding" id="f04">
-  <div class="top"><span class="id">F-04</span><span class="badge high">High</span><h3>No rate limiting or lockout on authentication</h3><span class="owasp">OWASP A07:2021</span></div>
+  <div class="top"><span class="id">F-04</span><span class="badge high">High</span><span class="badge fixed">Fixed</span><h3>No rate limiting or lockout on authentication</h3><span class="owasp">OWASP A07:2021</span></div>
   <p><code>POST /api/auth/login</code> has no throttling, CAPTCHA, or account lockout. Combined with a weak min-length policy (F-11), online brute-force and credential-stuffing attacks run unrestricted.</p>
   <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/auth/auth.controller.ts:20 · no <code>@nestjs/throttler</code> in package.json</div></div>
   <div class="row"><div class="k">Impact</div><div>Password guessing at full request rate; no signal or friction for attackers.</div></div>
+  <div class="row done"><div class="k">Status — Fixed</div><div>Added <code>@nestjs/throttler</code>: global <code>ThrottlerGuard</code> at 100/min/IP and <code>@Throttle</code> 5/min/IP on <code>POST /api/auth/login</code>. Because the API sits behind Railway's edge, <code>trust proxy</code> was enabled so the limiter keys on the real client (left-most <code>X-Forwarded-For</code>) rather than a rotating internal hop. Verified live: the 6th login attempt within a minute returns <code>429</code>. Deployed (commit 054d28d). Note: throttler storage is in-memory — move to a shared store (Redis) if the API scales beyond one replica.</div></div>
   <div class="row fix"><div class="k">Remediation</div>
     <ul>
       <li>Add <code>@nestjs/throttler</code> with a tight per-IP limit on the login route (e.g. 5–10/min).</li>
@@ -375,11 +401,12 @@ if (!this.secret) return;</code></pre></div>
 <h2>Priority fix order</h2>
 <div class="finding">
   <ol>
-    <li><b>F-02 + F-01</b> — set a strong unique <code>JWT_SECRET</code> and add role-based authorization. Together these close the full-takeover path.</li>
-    <li><b>F-03</b> — rotate/remove default credentials and the login-page hint before any real deployment.</li>
-    <li><b>F-04, F-05, F-06</b> — add login throttling, move the token to an HttpOnly+Secure cookie, fail-closed CORS.</li>
+    <li><s><b>F-02 + F-01</b> — strong <code>JWT_SECRET</code> enforcement + role-based authorization.</s> <span class="mini">Done</span></li>
+    <li><s><b>F-03</b> — remove default credentials and the login-page hint.</s> <span class="mini">Done</span></li>
+    <li><s><b>F-04</b> — login throttling (behind a correctly-configured proxy).</s> <span class="mini">Done</span></li>
+    <li><b>F-05, F-06</b> — move the token to an HttpOnly+Secure cookie; fail-closed CORS. <em>(next up)</em></li>
     <li><b>F-07 → F-10</b> — harden uploads, require the webhook secret in prod, add helmet, add token revocation.</li>
-    <li><b>F-11 → F-16</b> — policy, pagination, logging hygiene, Postgres migration, SCA in CI.</li>
+    <li><b>F-11 → F-16</b> — password policy, pagination, logging hygiene, Postgres migration, SCA in CI.</li>
   </ol>
 </div>
 
