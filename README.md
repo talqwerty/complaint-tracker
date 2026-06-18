@@ -18,6 +18,8 @@ Monorepo: **Next.js + shadcn/ui** (frontend) · **NestJS + Prisma + SQLite** (ba
 | admin@forth.com | password123 | admin |
 | staff@forth.com | password123 | staff |
 
+เพิ่มเพื่อน LINE OA [`@547ywttj`](https://line.me/R/ti/p/@547ywttj) เพื่อรับแจ้งเตือนเมื่อมีเคสใหม่.
+
 > Deploy บน Railway (web + api แยก service, SQLite บน volume) — ดู [DEPLOY.md](./DEPLOY.md)
 
 ```
