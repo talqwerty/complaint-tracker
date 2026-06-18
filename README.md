@@ -4,6 +4,22 @@
 
 Monorepo: **Next.js + shadcn/ui** (frontend) · **NestJS + Prisma + SQLite** (backend).
 
+## Live demo
+
+| | URL |
+| ---- | --- |
+| **เว็บ** | https://web-production-c2b6d.up.railway.app |
+| **API** | https://api-production-759b.up.railway.app/api |
+
+ลองใช้ด้วย user ตัวอย่าง (จาก seed):
+
+| email | password | role |
+| ----- | -------- | ---- |
+| admin@forth.com | password123 | admin |
+| staff@forth.com | password123 | staff |
+
+> Deploy บน Railway (web + api แยก service, SQLite บน volume) — ดู [DEPLOY.md](./DEPLOY.md)
+
 ```
 complaint-tracker/
 ├─ apps/
@@ -29,9 +45,6 @@ complaint-tracker/
 
 - Node.js ≥ 20
 - pnpm ≥ 10
-
-> หมายเหตุ: ในเครื่องนี้ `pnpm` จาก Homebrew (corepack shim) เสีย — ใช้ `~/Library/pnpm/pnpm` แทน
-> (`export PATH="$HOME/Library/pnpm:$PATH"`).
 
 ## Setup
 
@@ -102,14 +115,7 @@ JWT (Bearer). ทุก `/cases*` ต้องแนบ `Authorization: Bearer <
 Frontend เก็บ token ใน cookie `token`, แนบ header อัตโนมัติใน `lib/api.ts`,
 และ `apps/web/proxy.ts` (Next 16 proxy/middleware) กันเข้าหน้าอื่นถ้ายังไม่ login.
 
-User ตัวอย่าง (จาก seed):
-
-| email | password | role |
-| ----- | -------- | ---- |
-| admin@forth.com | password123 | admin |
-| staff@forth.com | password123 | staff |
-
-> รหัสผ่าน hash ด้วย bcryptjs. `JWT_SECRET` ใน `.env` ต้องเปลี่ยนก่อน production.
+> User ตัวอย่าง ดู [Live demo](#live-demo) — รหัสผ่าน hash ด้วย bcryptjs; `JWT_SECRET` ใน `.env` ต้องเปลี่ยนก่อน production.
 
 ## API
 
