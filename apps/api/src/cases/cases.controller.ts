@@ -20,10 +20,12 @@ import { UpdateCaseDto } from './dto/update-case.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('cases')
 export class CasesController {
   constructor(private readonly cases: CasesService) {}
@@ -65,6 +67,7 @@ export class CasesController {
     return this.cases.addNote(id, dto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.cases.remove(id);
@@ -93,6 +96,7 @@ export class CasesController {
     return this.cases.addAttachment(id, file);
   }
 
+  @Roles('admin')
   @Delete(':id/attachments/:attachmentId')
   removeAttachment(
     @Param('id', ParseIntPipe) id: number,

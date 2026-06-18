@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Security Report — Complaint Tracker</title>
+<style>
+  :root {
+    --bg: #faf9f7;
+    --card: #ffffff;
+    --ink: #1c1a17;
+    --muted: #6b6760;
+    --line: #e7e3dc;
+    --crit: #b42318;
+    --high: #c4561a;
+    --med: #b88207;
+    --low: #4a7c59;
+    --info: #5a6b8c;
+    --accent: #1c1a17;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai", sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 64px 24px 96px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 32px; margin-bottom: 40px; }
+  .eyebrow { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  h1 { font-size: 34px; font-weight: 600; letter-spacing: -.02em; margin: 0 0 8px; }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+  .meta { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 24px; font-size: 13px; color: var(--muted); }
+  .meta b { color: var(--ink); font-weight: 600; }
+
+  h2 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; margin: 56px 0 16px; padding-top: 8px; }
+  h3 { font-size: 15px; margin: 0; }
+  p { margin: 0 0 14px; }
+
+  /* score banner */
+  .banner { display: flex; align-items: center; gap: 24px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px 28px; }
+  .grade { font-size: 46px; font-weight: 700; line-height: 1; letter-spacing: -.03em; }
+  .grade small { display:block; font-size: 11px; font-weight:500; letter-spacing:.12em; text-transform:uppercase; color: var(--muted); margin-top:6px; }
+  .banner p { margin: 0; font-size: 14px; color: var(--muted); }
+
+  /* tally */
+  .tally { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 24px 0 8px; }
+  .tally .cell { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; text-align: center; }
+  .tally .n { font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
+  .tally .l { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+
+  /* severity colors */
+  .s-crit .n, .dot.crit { color: var(--crit); }
+  .s-high .n, .dot.high { color: var(--high); }
+  .s-med  .n, .dot.med  { color: var(--med); }
+  .s-low  .n, .dot.low  { color: var(--low); }
+  .s-info .n, .dot.info { color: var(--info); }
+
+  .badge { display: inline-block; font-family: ui-monospace, monospace; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 6px; color: #fff; white-space: nowrap; }
+  .badge.crit { background: var(--crit); }
+  .badge.high { background: var(--high); }
+  .badge.med  { background: var(--med); }
+  .badge.low  { background: var(--low); }
+  .badge.info { background: var(--info); }
+
+  /* summary table */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead th { text-align: left; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 0 12px 10px; border-bottom: 1px solid var(--line); }
+  tbody td { padding: 13px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:hover { background: #f4f1ec; }
+  td a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line); }
+  td a:hover { border-color: var(--ink); }
+
+  /* finding cards */
+  .finding { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 26px 28px; margin: 18px 0; }
+  .finding .top { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+  .finding .id { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .finding h3 { font-size: 17px; }
+  .owasp { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); margin-left: auto; }
+  .finding .row { margin-top: 14px; }
+  .finding .k { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  pre { background: #f4f1ec; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font-family: ui-monospace, monospace; font-size: 12.5px; line-height: 1.5; margin: 6px 0 0; }
+  code { font-family: ui-monospace, monospace; font-size: .9em; background: #f0ece5; padding: 1px 5px; border-radius: 4px; }
+  pre code { background: none; padding: 0; }
+  .loc { font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--accent); }
+  ul { margin: 6px 0 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+  .fix { border-left: 3px solid var(--low); padding-left: 14px; }
+
+  .good li { margin: 6px 0; }
+  footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+  @media (max-width: 640px) {
+    .tally { grid-template-columns: repeat(2, 1fr); }
+    .banner { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Security Assessment</p>
+  <h1>Complaint Tracker — Security Report</h1>
+  <p class="sub">Static review of the NestJS API + Next.js web monorepo (authentication, access control, input handling, storage, deployment).</p>
+  <div class="meta">
+    <span><b>Scope</b> apps/api (NestJS 11 · Prisma · SQLite), apps/web (Next.js 16)</span>
+    <span><b>Date</b> 2026-06-18</span>
+    <span><b>Method</b> Manual source review</span>
+    <span><b>Branch</b> main</span>
+  </div>
+</header>
+
+<div class="banner">
+  <div class="grade">C<small>Risk Posture</small></div>
+  <p>Solid fundamentals — Prisma parameterised queries, bcrypt hashing, DTO validation, JWT auth on every case route. But <b>authorization is missing entirely</b> (no role checks), brute-force / default-secret / default-credential exposure is significant, and the JWT lives in a JavaScript-readable cookie. Two Critical items should be fixed before any real-world use.</p>
+</div>
+
+<div class="tally">
+  <div class="cell s-crit"><div class="n">2</div><div class="l">Critical</div></div>
+  <div class="cell s-high"><div class="n">4</div><div class="l">High</div></div>
+  <div class="cell s-med"><div class="n">4</div><div class="l">Medium</div></div>
+  <div class="cell s-low"><div class="n">5</div><div class="l">Low</div></div>
+  <div class="cell s-info"><div class="n">1</div><div class="l">Info</div></div>
+</div>
+
+<h2>Summary</h2>
+<table>
+  <thead>
+    <tr><th style="width:64px">ID</th><th style="width:110px">Severity</th><th>Finding</th><th style="width:150px">Area</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><a href="#f01">F-01</a></td><td><span class="badge crit">Critical</span></td><td>No authorization / RBAC — any logged-in user can do everything</td><td>Access Control</td></tr>
+    <tr><td><a href="#f02">F-02</a></td><td><span class="badge crit">Critical</span></td><td>Weak / default JWT secret enables token forgery</td><td>Crypto / Auth</td></tr>
+    <tr><td><a href="#f03">F-03</a></td><td><span class="badge high">High</span></td><td>Default seeded credentials documented & shown in the UI</td><td>Auth</td></tr>
+    <tr><td><a href="#f04">F-04</a></td><td><span class="badge high">High</span></td><td>No rate limiting / lockout on login (brute force)</td><td>Auth</td></tr>
+    <tr><td><a href="#f05">F-05</a></td><td><span class="badge high">High</span></td><td>JWT in a non-HttpOnly, non-Secure cookie (XSS theft)</td><td>Session</td></tr>
+    <tr><td><a href="#f06">F-06</a></td><td><span class="badge high">High</span></td><td>CORS falls back to wildcard <code>*</code> when unset</td><td>Config</td></tr>
+    <tr><td><a href="#f07">F-07</a></td><td><span class="badge med">Medium</span></td><td>File upload trusts client MIME — SVG → stored XSS</td><td>Upload</td></tr>
+    <tr><td><a href="#f08">F-08</a></td><td><span class="badge med">Medium</span></td><td>LINE webhook signature check skipped when secret unset</td><td>Webhook</td></tr>
+    <tr><td><a href="#f09">F-09</a></td><td><span class="badge med">Medium</span></td><td>No security headers (helmet / CSP / HSTS / frame options)</td><td>Hardening</td></tr>
+    <tr><td><a href="#f10">F-10</a></td><td><span class="badge med">Medium</span></td><td>No token revocation; stale role/identity claims trusted for 1d</td><td>Session</td></tr>
+    <tr><td><a href="#f11">F-11</a></td><td><span class="badge low">Low</span></td><td>Weak password policy (min 6, no complexity)</td><td>Auth</td></tr>
+    <tr><td><a href="#f12">F-12</a></td><td><span class="badge low">Low</span></td><td>No pagination / unbounded list & search (resource exhaustion)</td><td>DoS</td></tr>
+    <tr><td><a href="#f13">F-13</a></td><td><span class="badge low">Low</span></td><td>PII written to application logs</td><td>Privacy</td></tr>
+    <tr><td><a href="#f14">F-14</a></td><td><span class="badge low">Low</span></td><td>SQLite: no at-rest encryption, single-writer, backup gap</td><td>Data</td></tr>
+    <tr><td><a href="#f15">F-15</a></td><td><span class="badge low">Low</span></td><td>Attachment delete is best-effort — orphaned blobs in S3</td><td>Storage</td></tr>
+    <tr><td><a href="#f16">F-16</a></td><td><span class="badge info">Info</span></td><td>No automated dependency / SCA scanning in CI</td><td>Supply Chain</td></tr>
+  </tbody>
+</table>
+
+<h2>Findings</h2>
+
+<!-- F-01 -->
+<div class="finding" id="f01">
+  <div class="top"><span class="id">F-01</span><span class="badge crit">Critical</span><h3>No authorization / RBAC — any authenticated user can do everything</h3><span class="owasp">OWASP A01:2021</span></div>
+  <p>Every <code>cases</code> route is protected only by <code>@UseGuards(JwtAuthGuard)</code>, which proves <i>authentication</i> but never checks <i>authorization</i>. The <code>role</code> field exists on the user model and is carried in the JWT, yet it is never read anywhere in the codebase. A low-privilege <code>staff</code> user can delete any case, delete attachments, and patch any record — identical to <code>admin</code>.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/cases/cases.controller.ts:26,68 · grep for "role" → only set in JWT, never enforced</div></div>
+  <div class="row"><div class="k">Evidence</div>
+    <pre><code>@UseGuards(JwtAuthGuard)        // authentication only
+@Controller('cases')
+export class CasesController { ...
+  @Delete(':id')
+  remove(@Param('id', ParseIntPipe) id: number) { ... }   // no role guard</code></pre>
+  </div>
+  <div class="row"><div class="k">Impact</div><div>Privilege escalation by design — destructive operations (case/attachment deletion) are open to the least-privileged account.</div></div>
+  <div class="row fix"><div class="k">Remediation</div>
+    <ul>
+      <li>Add a <code>@Roles('admin')</code> decorator + <code>RolesGuard</code> and apply it to destructive routes (<code>DELETE</code>, sensitive <code>PATCH</code>).</li>
+      <li>Define the authorization matrix explicitly; deny by default.</li>
+      <li>Consider per-record ownership/assignee checks if cases should be siloed by team.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- F-02 -->
+<div class="finding" id="f02">
+  <div class="top"><span class="id">F-02</span><span class="badge crit">Critical</span><h3>Weak / default JWT secret enables token forgery</h3><span class="owasp">OWASP A02:2021</span></div>
+  <p>The shipped <code>.env.example</code> sets <code>JWT_SECRET="change-me"</code>. <code>config.getOrThrow('JWT_SECRET')</code> validates that a value exists, but not that it is strong or non-default. If the app is deployed with the example value (or any guessable secret), an attacker can forge a valid JWT for any user — and because role is encoded in the token (F-01), forge <code>role:"admin"</code> too. This is a full authentication bypass.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/.env.example:4 · apps/api/src/auth/auth.module.ts:17 · jwt.strategy.ts:20</div></div>
+  <div class="row"><div class="k">Evidence</div><pre><code>JWT_SECRET="change-me"   # .env.example — copied verbatim by many deploys</code></pre></div>
+  <div class="row"><div class="k">Impact</div><div>Forged tokens → complete account takeover and privilege escalation.</div></div>
+  <div class="row fix"><div class="k">Remediation</div>
+    <ul>
+      <li>Generate a high-entropy secret per environment (<code>openssl rand -base64 48</code>); never reuse the example.</li>
+      <li>Fail fast on boot if <code>JWT_SECRET</code> equals a known default or is shorter than ~32 bytes.</li>
+      <li>Prefer asymmetric signing (RS256) so the verifier never holds the signing key, if the API fleet grows.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- F-03 -->
+<div class="finding" id="f03">
+  <div class="top"><span class="id">F-03</span><span class="badge high">High</span><h3>Default seeded credentials documented and printed in the UI</h3><span class="owasp">OWASP A07:2021</span></div>
+  <p>The seed creates <code>admin@forth.com</code> / <code>password123</code> and <code>staff@forth.com</code> / <code>password123</code>. These exact credentials appear in <code>DEPLOY.md</code>, the README, and are <b>rendered on the production login page</b>. If the seed is run against a real deployment and the password isn't rotated, anyone can log in as admin.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/prisma/seed.ts:7-8 · apps/web/app/login/page.tsx:90 ("ทดสอบ: admin@forth.com / password123")</div></div>
+  <div class="row"><div class="k">Impact</div><div>Trivial unauthenticated takeover of a freshly seeded instance.</div></div>
+  <div class="row fix"><div class="k">Remediation</div>
+    <ul>
+      <li>Remove the credential hint from the login page in production builds.</li>
+      <li>Force a password change on first admin login, or seed a random password printed only to the deploy log.</li>
+      <li>Keep demo seeds out of production seed paths.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- F-04 -->
+<div class="finding" id="f04">
+  <div class="top"><span class="id">F-04</span><span class="badge high">High</span><h3>No rate limiting or lockout on authentication</h3><span class="owasp">OWASP A07:2021</span></div>
+  <p><code>POST /api/auth/login</code> has no throttling, CAPTCHA, or account lockout. Combined with a weak min-length policy (F-11), online brute-force and credential-stuffing attacks run unrestricted.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/auth/auth.controller.ts:20 · no <code>@nestjs/throttler</code> in package.json</div></div>
+  <div class="row"><div class="k">Impact</div><div>Password guessing at full request rate; no signal or friction for attackers.</div></div>
+  <div class="row fix"><div class="k">Remediation</div>
+    <ul>
+      <li>Add <code>@nestjs/throttler</code> with a tight per-IP limit on the login route (e.g. 5–10/min).</li>
+      <li>Add progressive backoff / temporary lockout per account after repeated failures.</li>
+      <li>Ensure the proxy forwards the real client IP for accurate throttling.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- F-05 -->
+<div class="finding" id="f05">
+  <div class="top"><span class="id">F-05</span><span class="badge high">High</span><h3>JWT stored in a JavaScript-readable, non-Secure cookie</h3><span class="owasp">OWASP A05/A07:2021</span></div>
+  <p>The token is written client-side via <code>document.cookie</code> with only <code>SameSite=Lax</code> — no <code>HttpOnly</code>, no <code>Secure</code>. Any XSS (e.g. F-07) can read and exfiltrate the bearer token, and absent <code>Secure</code> the cookie can travel over plain HTTP.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/web/lib/auth.ts:13-15</div></div>
+  <div class="row"><div class="k">Evidence</div><pre><code>document.cookie = `${TOKEN_COOKIE}=...; path=/; max-age=${MAX_AGE}; samesite=lax`;
+// missing: HttpOnly, Secure</code></pre></div>
+  <div class="row"><div class="k">Impact</div><div>Token theft via XSS; session hijacking; exposure on non-TLS hops.</div></div>
+  <div class="row fix"><div class="k">Remediation</div>
+    <ul>
+      <li>Issue the session cookie from the server with <code>HttpOnly; Secure; SameSite=Strict</code> and have the API read it server-side (the Next.js proxy already gates on the cookie).</li>
+      <li>If a JS-readable token is unavoidable, scope it tightly and keep lifetimes short.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- F-06 -->
+<div class="finding" id="f06">
+  <div class="top"><span class="id">F-06</span><span class="badge high">High</span><h3>CORS falls back to wildcard when origin is unset</h3><span class="owasp">OWASP A05:2021</span></div>
+  <p><code>origin: process.env.CORS_ORIGIN?.split(',') ?? '*'</code> — if <code>CORS_ORIGIN</code> is missing or empty, the API accepts requests from <b>any</b> origin. A deploy misconfiguration silently opens the API to cross-origin browser calls.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/main.ts:10-12</div></div>
+  <div class="row"><div class="k">Impact</div><div>Cross-origin abuse of the API from attacker-controlled sites if the env var is ever unset.</div></div>
+  <div class="row fix"><div class="k">Remediation</div>
+    <ul>
+      <li>Fail closed: throw on boot if <code>CORS_ORIGIN</code> is missing in production rather than defaulting to <code>*</code>.</li>
+      <li>Maintain an explicit allow-list; never wildcard a credentialed API.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- F-07 -->
+<div class="finding" id="f07">
+  <div class="top"><span class="id">F-07</span><span class="badge med">Medium</span><h3>Upload filter trusts client MIME — SVG enables stored XSS</h3><span class="owasp">OWASP A03/A05:2021</span></div>
+  <p>The Multer <code>fileFilter</code> accepts anything where <code>file.mimetype.startsWith('image/')</code>. The MIME type is supplied by the client and is spoofable, and <code>image/svg+xml</code> legitimately passes — SVG files can embed <code>&lt;script&gt;</code>. The file is stored in S3 with that content-type and surfaced via a public/presigned URL; opening it directly executes script in the storage origin.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/cases/cases.controller.ts:77-83 · storage.service.ts:58-78</div></div>
+  <div class="row"><div class="k">Evidence</div><pre><code>if (file.mimetype.startsWith('image/')) cb(null, true);   // client-controlled; allows image/svg+xml</code></pre></div>
+  <div class="row"><div class="k">Impact</div><div>Stored XSS / phishing hosted on the trusted storage domain; content-type confusion.</div></div>
+  <div class="row fix"><div class="k">Remediation</div>
+    <ul>
+      <li>Validate by file signature (magic bytes), not the client MIME; allow-list raster types only (png/jpeg/webp).</li>
+      <li>Block or sanitise SVG; serve attachments with <code>Content-Disposition: attachment</code> and a restrictive CSP.</li>
+      <li>Serve user uploads from a separate, cookie-less domain.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- F-08 -->
+<div class="finding" id="f08">
+  <div class="top"><span class="id">F-08</span><span class="badge med">Medium</span><h3>LINE webhook signature verification skipped when secret unset</h3><span class="owasp">OWASP A05/A07:2021</span></div>
+  <p>The webhook returns early without verifying the signature when <code>LINE_CHANNEL_SECRET</code> is empty. That's a dev convenience, but a production deploy that forgets the secret silently accepts unauthenticated webhook posts. (The HMAC comparison itself is correctly constant-time via <code>timingSafeEqual</code> — good.)</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/notifications/line.controller.ts:52-53</div></div>
+  <div class="row"><div class="k">Evidence</div><pre><code>// Skip verification when no secret is configured (local/dev only).
+if (!this.secret) return;</code></pre></div>
+  <div class="row"><div class="k">Impact</div><div>Spoofed webhook events and log injection if the secret is unset in production. Impact is currently limited — the handler only logs — but the bypass is a latent risk.</div></div>
+  <div class="row fix"><div class="k">Remediation</div>
+    <ul>
+      <li>Require the secret outside development; reject unsigned requests in production.</li>
+      <li>Gate the skip behind an explicit <code>NODE_ENV !== 'production'</code> check.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- F-09 -->
+<div class="finding" id="f09">
+  <div class="top"><span class="id">F-09</span><span class="badge med">Medium</span><h3>No security headers (helmet / CSP / HSTS / frame options)</h3><span class="owasp">OWASP A05:2021</span></div>
+  <p>The API does not register <code>helmet</code> or set any security headers. There is no Content-Security-Policy, HSTS, <code>X-Content-Type-Options</code>, or frame-ancestors policy as defence-in-depth against MIME sniffing, clickjacking, and XSS.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/main.ts (no helmet) · grep "helmet" → none</div></div>
+  <div class="row"><div class="k">Impact</div><div>Reduced layered protection; easier exploitation of other client-side issues.</div></div>
+  <div class="row fix"><div class="k">Remediation</div>
+    <ul>
+      <li>Add <code>helmet()</code> to the API and a CSP + security headers to the Next.js responses.</li>
+      <li>Enable HSTS at the edge/proxy; set <code>X-Content-Type-Options: nosniff</code> and a restrictive frame policy.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- F-10 -->
+<div class="finding" id="f10">
+  <div class="top"><span class="id">F-10</span><span class="badge med">Medium</span><h3>No token revocation; stale claims trusted for the full lifetime</h3><span class="owasp">OWASP A07:2021</span></div>
+  <p><code>JwtStrategy.validate()</code> returns identity straight from the token payload (id, email, name, role) without a DB lookup. There is no server-side revocation — logout only clears the client cookie. A user who is deleted, disabled, or demoted keeps full access (with their old role) until the 1-day token expires.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/auth/jwt.strategy.ts:24-31 · apps/web/lib/auth.ts:17 (client-only logout)</div></div>
+  <div class="row"><div class="k">Impact</div><div>Revoked/demoted users retain access for up to 24h; no way to force-invalidate a leaked token.</div></div>
+  <div class="row fix"><div class="k">Remediation</div>
+    <ul>
+      <li>Re-fetch the user (and current role) from the DB in <code>validate()</code>, or carry a token version / <code>tokenValidAfter</code> timestamp checked per request.</li>
+      <li>Add a revocation/denylist for logout and compromised tokens; shorten access-token lifetime and use refresh tokens.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- F-11 -->
+<div class="finding" id="f11">
+  <div class="top"><span class="id">F-11</span><span class="badge low">Low</span><h3>Weak password policy</h3><span class="owasp">OWASP A07:2021</span></div>
+  <p><code>LoginDto</code> enforces only <code>@MinLength(6)</code> and there is no registration-time complexity, breach-list, or length check. Amplifies the brute-force exposure in F-04.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/auth/dto/login.dto.ts:9</div></div>
+  <div class="row fix"><div class="k">Remediation</div><ul><li>Require ≥12 chars, check against a breached-password list (e.g. HIBP k-anonymity), and apply policy at user-creation time.</li></ul></div>
+</div>
+
+<!-- F-12 -->
+<div class="finding" id="f12">
+  <div class="top"><span class="id">F-12</span><span class="badge low">Low</span><h3>No pagination on list / search</h3><span class="owasp">OWASP A05:2021</span></div>
+  <p><code>findAll</code> returns every matching case with no limit/offset, and the <code>search</code> term feeds an unbounded <code>OR contains</code> scan. With a large dataset this is a cheap resource-exhaustion vector and a slow, full-table query path.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/cases/cases.service.ts:34-52</div></div>
+  <div class="row fix"><div class="k">Remediation</div><ul><li>Add mandatory pagination (take/skip or cursor) with a server-side max page size; cap the search input length.</li></ul></div>
+</div>
+
+<!-- F-13 -->
+<div class="finding" id="f13">
+  <div class="top"><span class="id">F-13</span><span class="badge low">Low</span><h3>PII written to application logs</h3><span class="owasp">OWASP A09:2021</span></div>
+  <p>The LINE webhook logs <code>userId</code>/<code>groupId</code>/<code>roomId</code> for every event, and customer contact details are processed throughout. Logged identifiers are personal data and may be retained/aggregated by the platform.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/notifications/line.controller.ts:44-46</div></div>
+  <div class="row fix"><div class="k">Remediation</div><ul><li>Log identifiers at debug level only, redact/hash where possible, and define a retention policy.</li></ul></div>
+</div>
+
+<!-- F-14 -->
+<div class="finding" id="f14">
+  <div class="top"><span class="id">F-14</span><span class="badge low">Low</span><h3>SQLite: no at-rest encryption, single writer, backup gap</h3><span class="owasp">OWASP A04:2021</span></div>
+  <p>Customer complaint data (PII) lives in a plain SQLite file on a single Railway volume. No encryption at rest, limited concurrency, and the deploy notes acknowledge data is wiped without the volume. Acceptable for a demo; risky for production PII.</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/prisma/schema.prisma:5-8 · DEPLOY.md (volume / scaling notes)</div></div>
+  <div class="row fix"><div class="k">Remediation</div><ul><li>Migrate to managed Postgres with encryption at rest and automated backups before storing real customer data (path already documented in DEPLOY.md).</li></ul></div>
+</div>
+
+<!-- F-15 -->
+<div class="finding" id="f15">
+  <div class="top"><span class="id">F-15</span><span class="badge low">Low</span><h3>Attachment deletion is best-effort — orphaned blobs</h3><span class="owasp">OWASP A04:2021</span></div>
+  <p><code>removeAttachment</code> swallows storage-delete errors and always removes the DB row. Failed S3 deletes leave orphaned objects that are no longer tracked — a slow data-retention / cost leak and a privacy concern (deleted-from-UI files persist in storage).</p>
+  <div class="row"><div class="k">Location</div><div class="loc">apps/api/src/cases/cases.service.ts:187-193</div></div>
+  <div class="row fix"><div class="k">Remediation</div><ul><li>Record failed deletes for retry (queue / reconciliation job) rather than silently dropping them.</li></ul></div>
+</div>
+
+<!-- F-16 -->
+<div class="finding" id="f16">
+  <div class="top"><span class="id">F-16</span><span class="badge info">Info</span><h3>No automated dependency / SCA scanning</h3><span class="owasp">OWASP A06:2021</span></div>
+  <p>No <code>npm audit</code> / Dependabot / SCA step is present. Dependencies (NestJS 11, Next 16, AWS SDK, Prisma 6) are current at review time, but without continuous scanning, future CVEs go unnoticed.</p>
+  <div class="row fix"><div class="k">Remediation</div><ul><li>Add <code>pnpm audit</code> + Dependabot/Renovate to CI; gate merges on high-severity advisories.</li></ul></div>
+</div>
+
+<h2>What's already done well</h2>
+<div class="finding good">
+  <ul>
+    <li><b>No SQL injection</b> — all DB access goes through Prisma with parameterised queries; search uses <code>contains</code>, not string concatenation.</li>
+    <li><b>Passwords hashed with bcrypt</b> (cost 10) — never stored or logged in plaintext.</li>
+    <li><b>Input validation</b> — global <code>ValidationPipe</code> with <code>whitelist</code> + <code>forbidNonWhitelisted</code> + <code>transform</code>; DTOs on every write; <code>ParseIntPipe</code> on id params.</li>
+    <li><b>No user enumeration</b> — login returns one generic message for bad email or password.</li>
+    <li><b>Constant-time webhook HMAC</b> — LINE signature uses <code>timingSafeEqual</code> with a length pre-check.</li>
+    <li><b>Update allow-list</b> — <code>UpdateCaseDto</code> restricts mutable fields, preventing mass-assignment.</li>
+    <li><b>Upload size cap</b> (5 MB) and outbound links use <code>rel="noopener noreferrer"</code>.</li>
+    <li><b>Secrets are git-ignored</b> — only <code>.env.example</code> is tracked; no live credentials committed.</li>
+    <li><b>Auth enforced server-side</b> — the Next.js proxy gating is cosmetic, with real enforcement in the NestJS guard.</li>
+  </ul>
+</div>
+
+<h2>Priority fix order</h2>
+<div class="finding">
+  <ol>
+    <li><b>F-02 + F-01</b> — set a strong unique <code>JWT_SECRET</code> and add role-based authorization. Together these close the full-takeover path.</li>
+    <li><b>F-03</b> — rotate/remove default credentials and the login-page hint before any real deployment.</li>
+    <li><b>F-04, F-05, F-06</b> — add login throttling, move the token to an HttpOnly+Secure cookie, fail-closed CORS.</li>
+    <li><b>F-07 → F-10</b> — harden uploads, require the webhook secret in prod, add helmet, add token revocation.</li>
+    <li><b>F-11 → F-16</b> — policy, pagination, logging hygiene, Postgres migration, SCA in CI.</li>
+  </ol>
+</div>
+
+<footer>
+  Methodology: manual static review of authentication, authorization, input handling, file storage, notification webhooks, session management, and deployment configuration. Severities are qualitative (impact × exploitability) and not a substitute for dynamic testing or a formal pentest. No exploits were executed against a live system. · Generated 2026-06-18.
+</footer>
+
+</div>
+</body>
+</html>

@@ -85,10 +85,6 @@ export default function LoginPage() {
             </form>
           </CardContent>
         </Card>
-
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          ทดสอบ: admin@forth.com / password123
-        </p>
       </div>
     </div>
   );

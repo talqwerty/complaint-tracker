@@ -1,12 +1,21 @@
+import { randomBytes } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+// No hard-coded default passwords. Each user's password comes from its env var
+// (e.g. SEED_ADMIN_PASSWORD) or a freshly generated random one, printed once
+// below so it can be recorded and rotated.
 const seedUsers = [
-  { email: 'admin@forth.com', name: 'ผู้ดูแลระบบ', role: 'admin', password: 'password123' },
-  { email: 'staff@forth.com', name: 'สมชาย', role: 'staff', password: 'password123' },
+  { email: 'admin@forth.com', name: 'ผู้ดูแลระบบ', role: 'admin', envKey: 'SEED_ADMIN_PASSWORD' },
+  { email: 'staff@forth.com', name: 'สมชาย', role: 'staff', envKey: 'SEED_STAFF_PASSWORD' },
 ];
+
+function generatePassword(): string {
+  // ~16 chars, URL-safe, high entropy.
+  return randomBytes(12).toString('base64url');
+}
 
 const seedCases = [
   { customerName: 'บริษัท ABC จำกัด', category: 'สินค้าชำรุด', priority: 'Critical', subject: 'อุปกรณ์ไม่สามารถเปิดใช้งานได้', assignee: 'สมชาย', status: 'Open' },
@@ -27,12 +36,22 @@ async function main() {
   await prisma.case.deleteMany();
   await prisma.user.deleteMany();
 
-  for (const u of seedUsers) {
+  const credentials: { email: string; password: string; generated: boolean }[] = [];
+  for (const { envKey, ...u } of seedUsers) {
+    const fromEnv = process.env[envKey];
+    const password = fromEnv ?? generatePassword();
     await prisma.user.create({
-      data: { ...u, password: await bcrypt.hash(u.password, 10) },
+      data: { ...u, password: await bcrypt.hash(password, 10) },
     });
+    credentials.push({ email: u.email, password, generated: !fromEnv });
   }
   console.log(`Seeded ${seedUsers.length} users`);
+  console.log('\n=== Seeded login credentials (record these now) ===');
+  for (const c of credentials) {
+    const note = c.generated ? '(generated)' : '(from env)';
+    console.log(`  ${c.email}  ${c.password}  ${note}`);
+  }
+  console.log('Change these passwords after first login.\n');
 
   let seq = 1;
   for (const c of seedCases) {

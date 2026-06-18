@@ -66,10 +66,16 @@ pnpm --filter api seed
 
 ⚠️ The seed deletes existing users/cases first — run it only on a fresh database.
 
-Default logins after seeding:
+The seed sets each user's password from an env var, or generates a random one
+and prints it to the deploy log. Set these before seeding to choose your own:
 
-- `admin@forth.com` / `password123`
-- `staff@forth.com` / `password123`
+| Key | User |
+| --- | --- |
+| `SEED_ADMIN_PASSWORD` | `admin@forth.com` |
+| `SEED_STAFF_PASSWORD` | `staff@forth.com` |
+
+If unset, read the generated passwords from the seed command output and change
+them after first login. There are no default passwords.
 
 ## LINE webhook (optional)
 

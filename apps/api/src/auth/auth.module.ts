@@ -13,12 +13,22 @@ import { JwtStrategy } from './jwt.strategy';
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService): JwtModuleOptions => ({
-        secret: config.getOrThrow<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: config.get<string>('JWT_EXPIRES_IN') ?? '1d',
-        },
-      } as JwtModuleOptions),
+      useFactory: (config: ConfigService): JwtModuleOptions => {
+        const secret = config.getOrThrow<string>('JWT_SECRET');
+        // Fail fast on a default or low-entropy secret — a guessable secret
+        // lets anyone forge tokens (full auth bypass).
+        if (secret === 'change-me' || secret.length < 32) {
+          throw new Error(
+            'JWT_SECRET is weak or default. Set a strong, unique secret of at least 32 characters (e.g. `openssl rand -base64 48`).',
+          );
+        }
+        return {
+          secret,
+          signOptions: {
+            expiresIn: config.get<string>('JWT_EXPIRES_IN') ?? '1d',
+          },
+        } as JwtModuleOptions;
+      },
     }),
   ],
   controllers: [AuthController],
