@@ -5,9 +5,11 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import type { Request } from 'express';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -31,5 +33,19 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return user;
+  }
+
+  // TEMP diagnostic: reveal how the client IP arrives behind Railway's proxy
+  // so the rate-limiter tracker can be keyed correctly. Remove after.
+  @SkipThrottle()
+  @Get('_debug/ip')
+  debugIp(@Req() req: Request) {
+    return {
+      ip: req.ip,
+      ips: req.ips,
+      xForwardedFor: req.headers['x-forwarded-for'] ?? null,
+      xRealIp: req.headers['x-real-ip'] ?? null,
+      xEnvoyExternalAddress: req.headers['x-envoy-external-address'] ?? null,
+    };
   }
 }
