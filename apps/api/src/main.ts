@@ -9,11 +9,12 @@ async function bootstrap() {
     rawBody: true,
   });
 
-  // Behind the Railway edge proxy: trust the first hop so req.ip resolves to
-  // the real client (X-Forwarded-For) instead of a rotating proxy address.
-  // Without this the rate limiter buckets each request separately and never
-  // triggers.
-  app.set('trust proxy', 1);
+  // Behind the Railway edge proxy there are several internal hops, so trusting
+  // a fixed number leaves req.ip on a rotating internal address — the rate
+  // limiter then buckets every request separately and never triggers. Trust the
+  // whole chain so req.ip resolves to the left-most X-Forwarded-For entry (the
+  // real client as set by the Railway edge).
+  app.set('trust proxy', true);
 
   app.setGlobalPrefix('api');
   app.enableCors({
